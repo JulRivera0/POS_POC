@@ -36,3 +36,21 @@ class SaleOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+class SaleItemOut(BaseModel):
+    product_id: int
+    quantity: int
+    subtotal: Decimal
+    product_name: str
+
+    class Config:
+        orm_mode = True
+
+class SaleDetailOut(BaseModel):
+    id: int
+    timestamp: datetime
+    total: Decimal
+    items: list[SaleItemOut]
+
+    class Config:
+        orm_mode = True

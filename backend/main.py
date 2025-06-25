@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-
+from sqlalchemy.orm import Session, joinedload
+from models import Sale, SaleItem
 from database import Base, engine, SessionLocal
-import crud, schemas
+import crud
+import schemas
 
 Base.metadata.create_all(bind=engine)  # ② autogenera tabla
 
@@ -47,3 +48,26 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 @app.post("/sales", response_model=schemas.SaleOut)
 def registrar_venta(sale: schemas.SaleIn, db: Session = Depends(get_db)):
     return crud.create_sale(db, sale)
+
+@app.get("/sales", response_model=list[schemas.SaleDetailOut])
+def listar_ventas(db: Session = Depends(get_db)):
+    sales = db.query(Sale).options(joinedload(Sale.items).joinedload(SaleItem.product)).order_by(Sale.timestamp.desc()).all()
+    
+    # Enriquecer SaleItemOut con nombre del producto
+    result = []
+    for s in sales:
+        enriched_items = [
+            schemas.SaleItemOut(
+                product_id=item.product_id,
+                quantity=item.quantity,
+                subtotal=item.subtotal,
+                product_name=item.product.name if item.product else 'Desconocido'
+            ) for item in s.items
+        ]
+        result.append(schemas.SaleDetailOut(
+            id=s.id,
+            timestamp=s.timestamp,
+            total=s.total,
+            items=enriched_items
+        ))
+    return result

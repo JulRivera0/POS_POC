@@ -52,3 +52,6 @@ def create_sale(db: Session, sale_in: SaleIn):
     db.commit()
     db.refresh(sale)
     return sale
+
+def get_sales(db: Session):
+    return db.query(Sale).order_by(Sale.timestamp.desc()).all()

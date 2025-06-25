@@ -34,3 +34,7 @@ export async function crearVenta(items) {
       return r.json();
     });
   }
+
+export async function fetchVentas() {
+return fetch(`${API}/sales`).then(r => r.json());
+}
