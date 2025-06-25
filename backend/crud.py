@@ -1,6 +1,7 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from models import Product
-from schemas import ProductCreate, ProductUpdate
+from models import Product, Sale, SaleItem
+from schemas import ProductCreate, ProductUpdate, SaleIn 
 
 def create_product(db: Session, p: ProductCreate):
     db_p = Product(**p.dict())
@@ -32,3 +33,22 @@ def delete_product(db: Session, product_id: int):
     db.delete(db_p)
     db.commit()
     return db_p
+
+def create_sale(db: Session, sale_in: SaleIn):
+    total = 0
+    sale_items = []
+
+    for item in sale_in.items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if not product or product.stock < item.quantity:
+            raise HTTPException(status_code=400, detail=f"Producto {item.product_id} sin stock suficiente")
+        subtotal = product.price * item.quantity
+        product.stock -= item.quantity
+        total += subtotal
+        sale_items.append(SaleItem(product_id=product.id, quantity=item.quantity, subtotal=subtotal))
+
+    sale = Sale(total=total, items=sale_items)
+    db.add(sale)
+    db.commit()
+    db.refresh(sale)
+    return sale

@@ -43,3 +43,7 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     res = crud.delete_product(db, product_id)
     if not res:
         raise HTTPException(status_code=404, detail="Product not found")
+
+@app.post("/sales", response_model=schemas.SaleOut)
+def registrar_venta(sale: schemas.SaleIn, db: Session = Depends(get_db)):
+    return crud.create_sale(db, sale)

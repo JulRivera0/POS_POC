@@ -23,3 +23,14 @@ export async function editProducto(id, data) {
 export async function deleteProducto(id) {
   return fetch(`${API}/products/${id}`, { method: 'DELETE' });
 }
+
+export async function crearVenta(items) {
+    return fetch(`${API}/sales`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ items })
+    }).then(r => {
+      if (!r.ok) throw new Error('Error en la venta');
+      return r.json();
+    });
+  }
