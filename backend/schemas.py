@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from decimal import Decimal
 from typing import Optional
 from datetime import datetime
@@ -52,5 +52,16 @@ class SaleDetailOut(BaseModel):
     total: Decimal
     items: list[SaleItemOut]
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
+
+class SaleItemOut(BaseModel):
+    product_id: int               # ← requerido
+    product_name: str
+    quantity: int
+    subtotal: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+class SaleCreateResponse(BaseModel):
+    id: int
+    total: Decimal

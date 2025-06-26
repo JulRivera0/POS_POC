@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from models import Product, Sale, SaleItem
 from schemas import ProductCreate, ProductUpdate, SaleIn 
 
@@ -55,3 +55,11 @@ def create_sale(db: Session, sale_in: SaleIn):
 
 def get_sales(db: Session):
     return db.query(Sale).order_by(Sale.timestamp.desc()).all()
+
+def get_sale(db: Session, sale_id: int):
+    return (
+        db.query(Sale)
+          .options(joinedload(Sale.items).joinedload(SaleItem.product))
+          .filter(Sale.id == sale_id)
+          .first()
+    )
