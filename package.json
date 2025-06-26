@@ -14,8 +14,10 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.1.2",
     "@mui/material": "^7.1.2",
+    "html5-qrcode": "^2.3.8",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-qr-barcode-scanner": "^2.1.7",
     "react-router-dom": "^7.6.2"
   },
   "devDependencies": {
