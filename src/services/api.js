@@ -1,4 +1,5 @@
-const API = 'http://localhost:8000';   // ajusta si despliegas
+// const API = 'http://localhost:8000';   // ajusta si despliegas
+const API = 'https://posbackend-production-0bb1.up.railway.app';
 
 export async function fetchProductos() {
   return fetch(`${API}/products`).then(r => r.json());

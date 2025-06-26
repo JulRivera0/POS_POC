@@ -43,7 +43,7 @@ export default function Venta() {
   };
 
   return (
-    <Box p={2}>
+    <Box sx={{ p: 2, pb: 8 }}>
       <Typography variant="h5">Venta</Typography>
 
       <Table size="small">
