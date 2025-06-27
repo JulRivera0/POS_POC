@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 from models import Sale, SaleItem
 from database import Base, engine, SessionLocal
+from decimal import Decimal
 import crud
 import models
 import schemas
@@ -67,8 +68,9 @@ def list_sales(db: Session = Depends(get_db)):
             "total": s.total,
             "items": [
                 {
-                    "product_id": item.product_id,                   # 👈 añadido
+                    "product_id": item.product_id,
                     "product_name": item.product.name if item.product else "N/A",
+                    "unit_price": item.subtotal / item.quantity if item.quantity else Decimal("0"),
                     "quantity": item.quantity,
                     "subtotal": item.subtotal,
                 }
@@ -95,12 +97,13 @@ def read_sale(sale_id: int, db: Session = Depends(get_db)):
         "timestamp": sale.timestamp,
         "total": sale.total,
         "items": [
-            {
-                "product_id": item.product_id,                       # 👈 añadido
-                "product_name": item.product.name if item.product else "N/A",
-                "quantity": item.quantity,
-                "subtotal": item.subtotal,
-            }
+                {
+                    "product_id": item.product_id,
+                    "product_name": item.product.name if item.product else "N/A",
+                    "unit_price": item.subtotal / item.quantity if item.quantity else Decimal("0"),
+                    "quantity": item.quantity,
+                    "subtotal": item.subtotal,
+                }
             for item in sale.items
         ],
     }

@@ -4,6 +4,7 @@ import Venta from './pages/Venta';
 import Inventario from './pages/Inventario';
 import Reportes from './pages/Reportes';
 import Historial from './pages/Historial';
+import Ticket from './pages/Ticket';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/inventario" element={<Inventario />} />
         <Route path="/historial"  element={<Historial />} />   {/* ← aquí */}
         <Route path="/reportes"   element={<Reportes />} />
+        <Route path="/ticket/:id" element={<Ticket />} />
       </Routes>
     </BrowserRouter>
   );

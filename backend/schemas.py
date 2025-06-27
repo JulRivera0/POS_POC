@@ -55,8 +55,9 @@ class SaleDetailOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class SaleItemOut(BaseModel):
-    product_id: int               # ← requerido
+    product_id: int
     product_name: str
+    unit_price: Decimal           # 👈 NUEVO
     quantity: int
     subtotal: Decimal
 
