@@ -1,26 +1,26 @@
-from pydantic import BaseModel, ConfigDict
+# backend/schemas.py
 from decimal import Decimal
-from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel, ConfigDict
+
+# ---------- PRODUCTOS ----------
 
 class ProductBase(BaseModel):
-    name: str
     sku: str
-    price: Decimal
+    name: str
+    price: Decimal          # Precio de venta
+    cost: Decimal           # 👈 Costo unitario de compra
     stock: int
-    category: Optional[str] = None
+    category: str | None = None
 
 class ProductCreate(ProductBase):
-    pass
-
-class ProductUpdate(ProductBase):
-    pass
+    pass                    # mismo contenido
 
 class ProductOut(ProductBase):
     id: int
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        orm_mode = True
+# ---------- VENTAS ----------
 
 class SaleItemIn(BaseModel):
     product_id: int
@@ -29,40 +29,28 @@ class SaleItemIn(BaseModel):
 class SaleIn(BaseModel):
     items: list[SaleItemIn]
 
-class SaleOut(BaseModel):
+class SaleCreateResponse(BaseModel):
     id: int
-    timestamp: datetime
     total: Decimal
 
-    class Config:
-        orm_mode = True
-
+# Detalle de cada ítem vendido con costo y precio
 class SaleItemOut(BaseModel):
     product_id: int
-    quantity: int
-    subtotal: Decimal
     product_name: str
+    unit_price: Decimal      # Precio venta c/u
+    unit_cost:  Decimal      # 👈 Costo c/u
+    quantity: int
+    subtotal: Decimal        # unit_price * qty
+    cost_total: Decimal      # unit_cost  * qty
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SaleDetailOut(BaseModel):
     id: int
     timestamp: datetime
-    total: Decimal
+    total: Decimal            # Ingresos
+    cost:  Decimal            # 👈 Costo total (sum cost_total)
+    profit: Decimal           # total - cost
     items: list[SaleItemOut]
 
     model_config = ConfigDict(from_attributes=True)
-
-class SaleItemOut(BaseModel):
-    product_id: int
-    product_name: str
-    unit_price: Decimal           # 👈 NUEVO
-    quantity: int
-    subtotal: Decimal
-
-    model_config = ConfigDict(from_attributes=True)
-
-class SaleCreateResponse(BaseModel):
-    id: int
-    total: Decimal

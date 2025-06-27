@@ -25,9 +25,7 @@ export default function Ticket() {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <CircularProgress />
-        <Typography variant="body2" mt={2}>
-          Cargando ticket…
-        </Typography>
+        <Typography variant="body2" mt={2}>Cargando ticket…</Typography>
       </Box>
     );
   }
@@ -35,9 +33,7 @@ export default function Ticket() {
   if (!venta) {
     return (
       <Box sx={{ p: 4 }}>
-        <Typography variant="h6" color="error">
-          Ticket no encontrado
-        </Typography>
+        <Typography variant="h6" color="error">Ticket no encontrado</Typography>
         <Button variant="outlined" onClick={() => navigate(-1)} sx={{ mt: 2 }}>
           Volver
         </Button>
@@ -54,6 +50,7 @@ export default function Ticket() {
         border: '1px solid #ccc',
         borderRadius: 2,
         bgcolor: '#fff',
+        fontFamily: 'monospace'
       }}
     >
       <Typography variant="h6" align="center" gutterBottom>
@@ -71,29 +68,32 @@ export default function Ticket() {
 
       <Table size="small">
         <TableBody>
-          {venta.items.map((it, idx) => {
-            // fallback si unit_price no viene:
-            const unit = it.unit_price ?? it.subtotal / it.quantity;
-            return (
-              <TableRow key={idx}>
-                <TableCell>
-                  <strong>{it.product_name}</strong>
-                </TableCell>
-                <TableCell align="right">x{it.quantity}</TableCell>
-                <TableCell align="right">
-                  ${Number(unit).toFixed(2)}
-                </TableCell>
-                <TableCell align="right">
-                  ${Number(it.subtotal).toFixed(2)}
-                </TableCell>
-              </TableRow>
-            );
-          })}
+          {/* Encabezados */}
+          <TableRow>
+            <TableCell><strong>Producto</strong></TableCell>
+            <TableCell align="right"><strong>Cant</strong></TableCell>
+            <TableCell align="right"><strong>Precio</strong></TableCell>
+            <TableCell align="right"><strong>Subtotal</strong></TableCell>
+          </TableRow>
+
+          {/* Detalle */}
+          {venta.items.map((item, idx) => (
+            <TableRow key={idx}>
+              <TableCell><strong>{item.product_name}</strong></TableCell>
+              <TableCell align="right">x{item.quantity}</TableCell>
+              <TableCell align="right">
+                ${Number(item.unit_price).toFixed(2)}
+              </TableCell>
+              <TableCell align="right">
+                ${Number(item.subtotal).toFixed(2)}
+              </TableCell>
+            </TableRow>
+          ))}
+
+          {/* Total */}
           <TableRow>
             <TableCell colSpan={3}>
-              <Typography align="right" fontWeight="bold">
-                Total:
-              </Typography>
+              <Typography align="right" fontWeight="bold">Total:</Typography>
             </TableCell>
             <TableCell align="right">
               <Typography fontWeight="bold">

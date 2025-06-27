@@ -21,7 +21,7 @@ export default function Inventario() {
   const [busqueda, setBusqueda] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    name: '', sku: '', price: '', stock: '', category: ''
+    name: '', sku: '', price: '', cost: '', stock: '', category: ''
   });
   const [editId, setEditId] = useState(null);
 
@@ -35,11 +35,16 @@ export default function Inventario() {
   /* --- Guardar / eliminar --- */
   const resetForm = () => {
     setOpen(false);
-    setForm({ name: '', sku: '', price: '', stock: '', category: '' });
+    setForm({ name: '', sku: '', price: '', cost: '', stock: '', category: '' });
     setEditId(null);
   };
   const handleSubmit = async () => {
-    const payload = { ...form, price: Number(form.price), stock: Number(form.stock) };
+    const payload = {
+      ...form,
+      price: Number(form.price),
+      cost: Number(form.cost),  // 👈 NUEVO
+      stock: Number(form.stock)
+    };
     editId ? await editProducto(editId, payload) : await addProducto(payload);
     await cargar();
     resetForm();
@@ -112,6 +117,7 @@ export default function Inventario() {
                           name: p.name,
                           sku: p.sku,
                           price: String(p.price),
+                          cost: String(p.cost ?? 0),  // 👈 NUEVO
                           stock: String(p.stock),
                           category: p.category ?? ''
                         });
@@ -122,6 +128,7 @@ export default function Inventario() {
                       <TableCell width={80}>{p.sku}</TableCell>
                       <TableCell>{p.name}</TableCell>
                       <TableCell width={72}>${Number(p.price).toFixed(2)}</TableCell>
+                      <TableCell width={72}>${Number(p.cost ?? 0).toFixed(2)}</TableCell>
                       <TableCell width={60}>{p.stock}</TableCell>
                     </TableRow>
                   ))}
@@ -137,7 +144,7 @@ export default function Inventario() {
         color="primary"
         aria-label="add"
         onClick={() => {
-          setForm({ name: '', sku: '', price: '', stock: '', category: '' });
+          setForm({ name: '', sku: '', price: '', cost: '', stock: '', category: '' });
           setEditId(null);
           setOpen(true);
         }}
@@ -166,6 +173,9 @@ export default function Inventario() {
           <TextField label="PRICE" type="number" inputProps={{ min: 0, step: '0.01' }}
             value={form.price}
             onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          <TextField label="COST" type="number" inputProps={{ min: 0, step: '0.01' }}
+            value={form.cost}
+            onChange={(e) => setForm({ ...form, cost: e.target.value })} />
           <TextField label="STOCK" type="number" inputProps={{ min: 0, step: '1' }}
             value={form.stock}
             onChange={(e) => setForm({ ...form, stock: e.target.value })} />
