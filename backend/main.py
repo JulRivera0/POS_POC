@@ -1,179 +1,236 @@
 # backend/main.py
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from datetime import datetime
-from decimal import Decimal
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
-import models
-import schemas
-from database import Base
-
-DATABASE_URL = "sqlite:///./pv.db"  # o tu ruta real
-
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+from database import get_db, engine
+from models import Product, Sale, SaleItem, User, Base
+from schemas import (
+    ProductCreate, ProductOut,
+    SaleIn, SaleCreateResponse, SaleDetailOut
 )
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+from users.dependencies import current_user, fastapi_users
+from users.schemas import UserRead, UserCreate
+from users.manager import auth_backend
 
-Base.metadata.create_all(bind=engine)
+from decimal import Decimal
+from datetime import datetime
 
-app = FastAPI(title="Punto de Venta")
 
-# ---------- CORS ----------
+app = FastAPI()
+
+# ─────────────────────────────────────────────
+# Middleware CORS
+# ─────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------- DB dependency ----------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
-# ---------- PRODUCTOS ----------
-@app.get("/products", response_model=list[schemas.ProductOut])
-def list_products(db: Session = Depends(get_db)):
-    return db.query(models.Product).order_by(models.Product.id).all()
+# ─────────────────────────────────────────────
+# Auth routers (registro, login, usuarios)
+# ─────────────────────────────────────────────
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/auth/jwt",
+    tags=["auth"]
+)
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"]
+)
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserCreate),
+    prefix="/users",
+    tags=["users"]
+)
 
-@app.post("/products", response_model=schemas.ProductOut)
-def create_product(p: schemas.ProductCreate, db: Session = Depends(get_db)):
-    prod = models.Product(**p.dict())
+
+# ─────────────────────────────────────────────
+# Crear las tablas al iniciar
+# ─────────────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+# ─────────────────────────────────────────────
+# Endpoints de productos
+# ─────────────────────────────────────────────
+@app.get("/products", response_model=list[ProductOut])
+async def list_products(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user)
+):
+    result = await db.execute(
+        select(Product).where(Product.user_id == user.id)
+    )
+    return result.scalars().all()
+
+
+@app.post("/products", response_model=ProductOut)
+async def create_product(
+    p: ProductCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user)
+):
+    prod = Product(**p.dict(), user_id=user.id)
     db.add(prod)
-    db.commit()
-    db.refresh(prod)
+    await db.commit()
+    await db.refresh(prod)
     return prod
 
-@app.put("/products/{product_id}", response_model=schemas.ProductOut)
-def update_product(product_id: int, p: schemas.ProductCreate, db: Session = Depends(get_db)):
-    prod = db.query(models.Product).filter(models.Product.id == product_id).first()
+
+@app.put("/products/{product_id}", response_model=ProductOut)
+async def update_product(
+    product_id: int,
+    p: ProductCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user)
+):
+    result = await db.execute(
+        select(Product).where(Product.id == product_id, Product.user_id == user.id)
+    )
+    prod = result.scalar_one_or_none()
     if not prod:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
     for k, v in p.dict().items():
         setattr(prod, k, v)
-    db.commit()
-    db.refresh(prod)
+    await db.commit()
+    await db.refresh(prod)
     return prod
 
+
 @app.delete("/products/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
-    prod = db.query(models.Product).filter(models.Product.id == product_id).first()
+async def delete_product(
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user)
+):
+    result = await db.execute(
+        select(Product).where(Product.id == product_id, Product.user_id == user.id)
+    )
+    prod = result.scalar_one_or_none()
     if not prod:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
-    db.delete(prod)
-    db.commit()
+    await db.delete(prod)
+    await db.commit()
     return {"ok": True}
 
-# ---------- CREAR VENTA ----------
-@app.post("/sales", response_model=schemas.SaleCreateResponse)
-def create_sale(s: schemas.SaleIn, db: Session = Depends(get_db)):
+
+# ─────────────────────────────────────────────
+# Endpoints de ventas
+# ─────────────────────────────────────────────
+@app.post("/sales", response_model=SaleCreateResponse)
+async def create_sale(
+    s: SaleIn,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user)
+):
     total = Decimal("0")
     cost = Decimal("0")
     items = []
 
     for it in s.items:
-        prod = db.query(models.Product).filter(models.Product.id == it.product_id).first()
-        if not prod:
-            raise HTTPException(status_code=404, detail=f"Producto {it.product_id} no existe")
-        if prod.stock < it.quantity:
-            raise HTTPException(status_code=400, detail=f"Stock insuficiente para {prod.name}")
-        
+        result = await db.execute(
+            select(Product).where(Product.id == it.product_id, Product.user_id == user.id)
+        )
+        prod = result.scalar_one_or_none()
+        if not prod or prod.stock < it.quantity:
+            raise HTTPException(status_code=400, detail="Producto inválido o sin stock")
         prod.stock -= it.quantity
-
         subtotal = prod.price * it.quantity
         cost_total = prod.cost * it.quantity
-
         total += subtotal
         cost += cost_total
-
-        items.append(models.SaleItem(
+        items.append(SaleItem(
             product_id=prod.id,
             quantity=it.quantity,
             subtotal=subtotal,
             cost_total=cost_total
         ))
 
-    venta = models.Sale(
+    venta = Sale(
         timestamp=datetime.utcnow(),
         total=total,
         cost=cost,
-        items=items
+        items=items,
+        user_id=user.id
     )
 
     db.add(venta)
-    db.commit()
-    db.refresh(venta)
-
+    await db.commit()
+    await db.refresh(venta)
     return {"id": venta.id, "total": venta.total}
 
-# ---------- LISTAR VENTAS ----------
-@app.get("/sales", response_model=list[schemas.SaleDetailOut])
-def list_sales(db: Session = Depends(get_db)):
-    sales = (
-        db.query(models.Sale)
-        .options(joinedload(models.Sale.items).joinedload(models.SaleItem.product))
-        .order_by(models.Sale.timestamp.desc())
-        .all()
-    )
 
-    return [
-        {
-            "id": s.id,
-            "timestamp": s.timestamp,
-            "total": s.total,
-            "cost": s.cost,
-            "profit": s.total - s.cost,
-            "items": [
-                {
-                    "product_id": item.product_id,
-                    "product_name": item.product.name if item.product else "N/A",
-                    "unit_price": item.subtotal / item.quantity if item.quantity else Decimal("0"),
-                    "unit_cost": item.cost_total / item.quantity if item.quantity else Decimal("0"),
-                    "quantity": item.quantity,
-                    "subtotal": item.subtotal,
-                    "cost_total": item.cost_total
-                }
-                for item in s.items
-            ]
-        }
-        for s in sales
-    ]
-
-# ---------- DETALLE DE UNA VENTA ----------
-@app.get("/sales/{sale_id}", response_model=schemas.SaleDetailOut)
-def read_sale(sale_id: int, db: Session = Depends(get_db)):
-    sale = (
-        db.query(models.Sale)
-        .options(joinedload(models.Sale.items).joinedload(models.SaleItem.product))
-        .filter(models.Sale.id == sale_id)
-        .first()
+@app.get("/sales", response_model=list[SaleDetailOut])
+async def list_sales(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user)
+):
+    result = await db.execute(
+        select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product)
+        ).where(Sale.user_id == user.id).order_by(Sale.timestamp.desc())
     )
-    if not sale:
+    sales = result.scalars().all()
+    return [{
+        "id": s.id,
+        "timestamp": s.timestamp,
+        "total": s.total,
+        "cost": s.cost,
+        "profit": s.total - s.cost,
+        "items": [{
+            "product_id": i.product_id,
+            "product_name": i.product.name if i.product else "N/A",
+            "unit_price": i.subtotal / i.quantity if i.quantity else 0,
+            "unit_cost": i.cost_total / i.quantity if i.quantity else 0,
+            "quantity": i.quantity,
+            "subtotal": i.subtotal,
+            "cost_total": i.cost_total
+        } for i in s.items]
+    } for s in sales]
+
+
+@app.get("/sales/{sale_id}", response_model=SaleDetailOut)
+async def get_sale(
+    sale_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user)
+):
+    result = await db.execute(
+        select(Sale).options(
+            selectinload(Sale.items).selectinload(SaleItem.product)
+        ).where(Sale.id == sale_id, Sale.user_id == user.id)
+    )
+    s = result.scalar_one_or_none()
+    if not s:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
-
     return {
-        "id": sale.id,
-        "timestamp": sale.timestamp,
-        "total": sale.total,
-        "cost": sale.cost,
-        "profit": sale.total - sale.cost,
-        "items": [
-            {
-                "product_id": item.product_id,
-                "product_name": item.product.name if item.product else "N/A",
-                "unit_price": item.subtotal / item.quantity if item.quantity else Decimal("0"),
-                "unit_cost": item.cost_total / item.quantity if item.quantity else Decimal("0"),
-                "quantity": item.quantity,
-                "subtotal": item.subtotal,
-                "cost_total": item.cost_total
-            }
-            for item in sale.items
-        ]
+        "id": s.id,
+        "timestamp": s.timestamp,
+        "total": s.total,
+        "cost": s.cost,
+        "profit": s.total - s.cost,
+        "items": [{
+            "product_id": i.product_id,
+            "product_name": i.product.name if i.product else "N/A",
+            "unit_price": i.subtotal / i.quantity if i.quantity else 0,
+            "unit_cost": i.cost_total / i.quantity if i.quantity else 0,
+            "quantity": i.quantity,
+            "subtotal": i.subtotal,
+            "cost_total": i.cost_total
+        } for i in s.items]
     }
