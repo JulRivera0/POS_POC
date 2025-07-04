@@ -1,4 +1,5 @@
-const API = "http://localhost:8000";   // ajusta si usas otro host/puerto
+// const API = "http://localhost:8000";   // ajusta si usas otro host/puerto
+const API = 'https://posbackend-production-0bb1.up.railway.app';
 
 /* ---------- Productos ---------- */
 export const fetchProductos = () =>

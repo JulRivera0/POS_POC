@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Table, TableBody, TableRow, TableCell,
-  Button, Divider, CircularProgress
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableRow,
+  TableCell,
+  Button,
+  Divider,
+  CircularProgress
 } from '@mui/material';
+import { fetchVenta } from '../services/api'; // helper centralizado
 
 export default function Ticket() {
   const { id } = useParams();
@@ -11,9 +19,9 @@ export default function Ticket() {
   const [venta, setVenta] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  /* ------- cargar venta ------- */
   useEffect(() => {
-    fetch(`http://localhost:8000/sales/${id}`)
-      .then((r) => r.json())
+    fetchVenta(id)
       .then((data) => {
         setVenta(data);
         setLoading(false);
@@ -25,7 +33,9 @@ export default function Ticket() {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <CircularProgress />
-        <Typography variant="body2" mt={2}>Cargando ticket…</Typography>
+        <Typography variant="body2" mt={2}>
+          Cargando ticket…
+        </Typography>
       </Box>
     );
   }
@@ -33,7 +43,9 @@ export default function Ticket() {
   if (!venta) {
     return (
       <Box sx={{ p: 4 }}>
-        <Typography variant="h6" color="error">Ticket no encontrado</Typography>
+        <Typography variant="h6" color="error">
+          Ticket no encontrado
+        </Typography>
         <Button variant="outlined" onClick={() => navigate(-1)} sx={{ mt: 2 }}>
           Volver
         </Button>
@@ -53,6 +65,7 @@ export default function Ticket() {
         fontFamily: 'monospace'
       }}
     >
+      {/* Encabezado */}
       <Typography variant="h6" align="center" gutterBottom>
         Punto de Venta
       </Typography>
@@ -66,9 +79,10 @@ export default function Ticket() {
 
       <Divider sx={{ my: 2 }} />
 
+      {/* Detalle */}
       <Table size="small">
         <TableBody>
-          {/* Encabezados */}
+          {/* Encabezados de columna */}
           <TableRow>
             <TableCell><strong>Producto</strong></TableCell>
             <TableCell align="right"><strong>Cant</strong></TableCell>
@@ -76,7 +90,7 @@ export default function Ticket() {
             <TableCell align="right"><strong>Subtotal</strong></TableCell>
           </TableRow>
 
-          {/* Detalle */}
+          {/* Ítems */}
           {venta.items.map((item, idx) => (
             <TableRow key={idx}>
               <TableCell><strong>{item.product_name}</strong></TableCell>
@@ -93,7 +107,9 @@ export default function Ticket() {
           {/* Total */}
           <TableRow>
             <TableCell colSpan={3}>
-              <Typography align="right" fontWeight="bold">Total:</Typography>
+              <Typography align="right" fontWeight="bold">
+                Total:
+              </Typography>
             </TableCell>
             <TableCell align="right">
               <Typography fontWeight="bold">
@@ -104,6 +120,7 @@ export default function Ticket() {
         </TableBody>
       </Table>
 
+      {/* Acciones */}
       <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
         <Button fullWidth variant="outlined" onClick={() => navigate(-1)}>
           Volver
